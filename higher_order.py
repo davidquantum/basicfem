@@ -76,6 +76,8 @@ def create_connectivity_arrays(n_elem, max_p):
        for p in range(2, max_p+1):
            con[i][p] = count
            count += 1
+   print "Connectivity"
+   print con
    return con
           
 # Calculate solution value
@@ -86,6 +88,8 @@ def solution_value(s, m, mesh, connectivity, elem_subdiv, sol, max_p, n_elem):
        glob_j = connectivity[m][j]    # global index of shape function j
        if glob_j >= 0: 
            val += sol[glob_j]*fn[j](x_ref)
+       if glob_j == -1:
+	   val += fn[index_ua](x_ref)
    return val
           
 # Solve the equation -(q(x)u'(x))' + p(x)u(x)= f(x) in interval (a, b) with 
@@ -123,9 +127,12 @@ def fem_solve_1d_3(mesh, q, p, f, qpts_num, fn, dfn, max_p, exact_sol_defined, e
                    if glob_j >= 0: 
                        val_ij = a(j, i, q, p, x1, x2, jac, qpts_num, roots, weights)
                        I.append(glob_i); J.append(glob_j); V.append(val_ij)
+	           elif glob_j == -1:
+                       tmp = a(index_ua, i, minus_q, minus_p, x1, x2, jac, qpts_num, roots, weights)
+                       print "TMP: ", tmp
+                       rhs[glob_i] += tmp
                rhs[glob_i] += l(i, f, x1, x2, jac, qpts_num, roots, weights)
-	   if glob_i == -1:
-               rhs[0] += l(0, f, x1, x2, jac, qpts_num, roots, weights) - a(index_ua, 0, q, p, x1, x2, jac, qpts_num, roots, weights)
+
    # solve the matrix problem
    print "Solving."
    mat = sparse.coo_matrix((V,(I,J)),shape=(size,size))
@@ -175,21 +182,26 @@ def fn4(xi): return xi*(xi**2 - 1.)
 def dfn4(xi): return 3.*xi**2 - 1.
 def fn5(xi): return xi**4 - 2.*xi**2 + 1
 def dfn5(xi): return 4*xi**3 - 4.*xi
-def ua(xi): return 1.
-def ub(xi): return 1.
-def dua(xi): return 0.
-def dub(xi): return 0.
+def ua(xi): return 1.*fn1(xi)
+def ub(xi): return 1.*fn2(xi)
+def dua(xi): return 1.*dfn1(xi)
+def dub(xi): return 1.*dfn2(xi) 
 fn = [fn1, fn2, fn3, fn4, fn5, ua, ub]
 dfn = [dfn1, dfn2, dfn3, dfn4, dfn5, dua, dub]
   
+
 index_ua = 5;
 index_ub = 6; 
 # Equation parameters
 K = 10.
 def q(x):
    return 1.
+def minus_q(x):
+   return -1. * q(x)
 def p(x):
    return K**2
+def minus_p(x):
+    return -1. * p(x)
 def f(x):
    return K**2
 
@@ -203,13 +215,13 @@ x_left = -1.
 x_right = 1.
 
 # Finite element mesh
-n_elem = 4
+n_elem = 4 
 mesh = []
 for j in range(0, n_elem+1):
    mesh.append(x_left + j*(x_right-x_left)/n_elem)
    
 # Polynomial degree of mesh elements
-max_p = 4
+max_p = 2
 
 # Number of quadrature points per element
 qpts_num = max_p + 1
